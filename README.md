@@ -134,12 +134,6 @@ node server/index.js
 
 Then **whitelist your VM's static IP** in MongoDB Atlas or your target service.
 
-## Roadmap
-
-- **v1** — MongoDB adapter, HTTP adapter, API key auth, CLI
-- **v2** — Client SDK, logging, rate limiting, env var support, PostgreSQL adapter
-- **v3** — One-command deploy, Docker support, multi-target routing
-
 ## License
 
 MIT
