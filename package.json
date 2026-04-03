@@ -1,15 +1,15 @@
 {
   "name": "ip-bridge",
-  "version": "1.0.0",
-  "description": "A lightweight proxy providing a static outgoing IP for serverless platforms like Vercel",
-  "main": "server/index.js",
+  "version": "0.1.0",
+  "description": "TCP proxy that gives serverless apps (Vercel) a static outgoing IP for MongoDB Atlas",
+  "main": "server/proxy.js",
   "bin": {
     "ip-bridge": "./bin/cli.js"
   },
   "scripts": {
-    "start": "node server/index.js"
+    "start": "node server/proxy.js"
   },
-  "keywords": ["vercel", "proxy", "static-ip", "express", "bridge", "mongodb"],
+  "keywords": ["vercel", "proxy", "static-ip", "mongodb", "tcp", "bridge"],
   "repository": {
     "type": "git",
     "url": "https://github.com/amide-init/ip-bridge"
@@ -19,8 +19,14 @@
     "url": "https://github.com/amide-init/ip-bridge/issues"
   },
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin/",
+    "server/"
+  ],
   "dependencies": {
-    "express": "^4.18.2",
-    "mongodb": "^6.3.0"
+    "dotenv": "^17.4.0"
   }
 }

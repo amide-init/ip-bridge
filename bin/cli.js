@@ -7,32 +7,36 @@ const command = process.argv[2];
 
 const commands = {
   init() {
-    const configPath = path.join(process.cwd(), 'server', 'config.json');
-    if (fs.existsSync(configPath)) {
-      console.log('config.json already exists.');
+    const envPath = path.join(process.cwd(), '.env');
+    if (fs.existsSync(envPath)) {
+      console.log('.env already exists.');
       return;
     }
-    const defaultConfig = {
-      targetBaseUrl: 'https://api.example.com',
-      port: 3000,
-      allowedUsers: [{ apiKey: 'change-me-before-deploying' }],
-    };
-    fs.mkdirSync(path.join(process.cwd(), 'server'), { recursive: true });
-    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
-    console.log('Created server/config.json — update targetBaseUrl and apiKey before starting.');
+    const defaultEnv = `# ip-bridge configuration
+
+# Port to listen on (MongoDB default is 27017)
+PORT=27017
+
+# Your MongoDB Atlas cluster host and port
+# Find this in Atlas: Connect → Drivers → copy the host from the URI
+# Format: your-cluster.mongodb.net:27017
+MONGODB_TARGET=your-cluster.mongodb.net:27017
+`;
+    fs.writeFileSync(envPath, defaultEnv);
+    console.log('Created .env — set MONGODB_TARGET to your Atlas cluster host before starting.');
   },
 
   start() {
-    const entry = path.join(__dirname, '..', 'server', 'index.js');
+    const entry = path.join(__dirname, '..', 'server', 'proxy.js');
     execSync(`node ${entry}`, { stdio: 'inherit' });
   },
 };
 
 if (!command || !commands[command]) {
-  console.log('Usage: vercel-ip-bridge <command>');
+  console.log('Usage: ip-bridge <command>');
   console.log('Commands:');
-  console.log('  init   Create default config.json');
-  console.log('  start  Start the proxy server');
+  console.log('  init   Create default .env config');
+  console.log('  start  Start the TCP proxy');
   process.exit(1);
 }
 
