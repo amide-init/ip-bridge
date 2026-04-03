@@ -1,11 +1,11 @@
 # ip-bridge
 
-A lightweight proxy server that provides a **static outgoing IP** for serverless platforms like Vercel.
+A TCP proxy that gives serverless apps (Vercel, Netlify, etc.) a **static outgoing IP** for MongoDB Atlas.
 
-Serverless platforms use dynamic IPs, making it impossible to whitelist your app's IP with databases (MongoDB Atlas, PostgreSQL) or restricted APIs. ip-bridge runs on a VM with a static IP and acts as the middleman.
+Serverless platforms use dynamic IPs, making it impossible to whitelist your app in MongoDB Atlas. ip-bridge runs on a VM with a static IP and transparently forwards your MongoDB connections — no code changes needed.
 
 ```
-Vercel App (dynamic IP) → ip-bridge (static IP VM) → MongoDB / API
+Next.js on Vercel (dynamic IP) → ip-bridge on Oracle VM (static IP) → MongoDB Atlas
 ```
 
 ## Install
@@ -14,143 +14,83 @@ Vercel App (dynamic IP) → ip-bridge (static IP VM) → MongoDB / API
 npm install -g ip-bridge
 ```
 
-## Quick Start
+## Setup on your VM (Oracle Cloud / AWS)
 
 ```bash
 # 1. Create .env config
 ip-bridge init
 
-# 2. Edit .env with your credentials
+# 2. Edit .env — set MONGODB_TARGET to your Atlas cluster host
+nano .env
 
-# 3. Start the server
+# 3. Start the proxy
 ip-bridge start
 ```
 
 ## Configuration
 
-Run `ip-bridge init` to generate a `.env` file, then fill in your values:
+`.env` on your VM:
 
 ```env
-PORT=3000
+# Port to listen on (MongoDB default is 27017)
+PORT=27017
 
-# Comma-separated API keys for authenticating requests
-API_KEYS=your-secret-key
-
-# MongoDB adapter (remove if not needed)
-MONGODB_URI=mongodb+srv://user:password@cluster.mongodb.net/dbname
-
-# HTTP adapter (remove if not needed)
-HTTP_TARGET_BASE_URL=https://api.example.com
+# Your MongoDB Atlas cluster host and port
+# Find this in Atlas: Connect → Drivers → copy the host from the URI
+# Format: your-cluster.mongodb.net:27017
+MONGODB_TARGET=your-cluster.mongodb.net:27017
 ```
 
-Adapters are **auto-enabled** based on which env vars are present — only include what you need.
+To find `MONGODB_TARGET`: go to MongoDB Atlas → Connect → Drivers → copy the hostname from the connection string.
 
-## Adapters
+## Usage in your Next.js / Vercel app
 
-### MongoDB
-
-**Route:** `POST /bridge/mongo/query`
-
-```js
-const res = await fetch("http://VM_IP:3000/bridge/mongo/query", {
-  method: "POST",
-  headers: {
-    "x-api-key": "your-secret-key",
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    collection: "users",
-    operation: "find",
-    filter: { status: "active" }
-  })
-});
-
-const { result } = await res.json();
-```
-
-**Supported operations:**
-
-| Operation | Description |
-|-----------|-------------|
-| `find` | Find multiple documents |
-| `findOne` | Find a single document |
-| `insertOne` | Insert one document |
-| `insertMany` | Insert multiple documents |
-| `updateOne` | Update a single document |
-| `updateMany` | Update multiple documents |
-| `deleteOne` | Delete a single document |
-| `deleteMany` | Delete multiple documents |
-| `aggregate` | Run an aggregation pipeline |
-| `countDocuments` | Count matching documents |
-
-### HTTP
-
-**Route:** `ALL /bridge/http/*`
-
-Forwards any HTTP request to `HTTP_TARGET_BASE_URL`.
-
-```js
-const res = await fetch("http://VM_IP:3000/bridge/http/users", {
-  method: "GET",
-  headers: { "x-api-key": "your-secret-key" }
-});
-```
-
-## Authentication
-
-All requests must include the `x-api-key` header:
-
-```
-x-api-key: your-secret-key
-```
-
-Multiple keys are supported — set `API_KEYS` as a comma-separated list:
+No code changes needed. Just update your environment variable:
 
 ```env
-API_KEYS=key-for-vercel,key-for-local-dev
+# .env.local (Vercel environment variables)
+# Before:
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/dbname
+
+# After:
+MONGODB_URI=mongodb://user:pass@vm-ip:27017/dbname
 ```
 
-## Health Check
-
-```
-GET /health
-→ { "status": "ok" }
-```
+Your `connectDB`, Mongoose models, and all queries stay exactly the same.
 
 ## Deployment
 
-The recommended host is **Oracle Cloud Free Tier** — it provides a VM with a permanent public IP at no cost, which is exactly what this tool needs.
-
-### Oracle Cloud (recommended)
+### Oracle Cloud (recommended — always free)
 
 1. Sign up at [oracle.com/cloud/free](https://www.oracle.com/cloud/free/)
-2. Create an **Always Free** VM instance (Ampere A1 or AMD E2 shape)
-3. Note the public IP — this is the static IP you'll whitelist
-
-```bash
-# SSH into your Oracle VM, then:
-npm install -g ip-bridge
-ip-bridge init
-# Edit .env with your credentials
-ip-bridge start
-```
-
-4. Open port `3000` in the Oracle Cloud security list (or your chosen port)
-5. **Whitelist your VM's public IP** in MongoDB Atlas / your target service
+2. Create an **Always Free** VM instance (Ampere A1 or AMD E2)
+3. Note the **public IP** — this is your static IP
+4. Open port `27017` in the Oracle Cloud security list
+5. SSH into the VM and run the setup above
+6. **Whitelist the VM's public IP** in MongoDB Atlas → Network Access
 
 ### Keep it running with PM2
 
 ```bash
 npm install -g pm2
 pm2 start "ip-bridge start" --name ip-bridge
-pm2 save
-pm2 startup
+pm2 save && pm2 startup
 ```
 
 ### Other providers
 
-- [AWS EC2](https://aws.amazon.com/free/) (Free tier, 12 months)
+- [AWS EC2](https://aws.amazon.com/free/) (free tier, 12 months)
 - Any VPS with a static IP (DigitalOcean, Hetzner, etc.)
+
+## How it works
+
+ip-bridge is a TCP proxy using Node.js built-in `net` and `tls` modules. It listens on port 27017, accepts raw MongoDB connections, and forwards them to Atlas over TLS. From Atlas's perspective, all traffic comes from one IP — your VM.
+
+## Security
+
+- Atlas only accepts connections from your VM's whitelisted IP
+- MongoDB credentials are still required — anyone connecting through the VM still needs a valid username and password
+- Only one dependency: `dotenv`
 
 ## License
 
